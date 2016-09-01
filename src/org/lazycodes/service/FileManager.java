@@ -28,6 +28,8 @@ public class FileManager {
                     //  System.out.println(fileEntry.toString());
                         loadMediaFiles(fileEntry);
                     } else {
+                        fileEntry.getName();
+                        
                         if(fileEntry.getPath().endsWith(".mp3")){
                             files.add(new File(fileEntry.getPath()).toURI().toString());
                         }                       

@@ -10,14 +10,11 @@ import com.jfoenix.controls.JFXSlider;
 import java.io.File;
 import java.io.IOException;
 import static java.lang.Math.floor;
-import static java.lang.String.format;
 import java.util.ArrayList;
 import java.util.List;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.Observable;
-import javafx.beans.value.ChangeListener;
-import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -36,6 +33,8 @@ import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import org.lazycodes.service.FileManager;
+import static java.lang.String.format;
+import javafx.scene.text.TextAlignment;
 
 /**
  *
@@ -44,7 +43,7 @@ import org.lazycodes.service.FileManager;
 public class LazyPlayer extends Application{
     
     private Scene scene;
-    private JFXButton playButton;
+    private JFXButton playPauseButton;
     private JFXButton nextButton;
     private JFXButton previousButton;
     private GridPane controlsLayout;
@@ -54,8 +53,13 @@ public class LazyPlayer extends Application{
     private MediaPlayer mediaPlayer;
     private MediaView mediaView;
     private Duration duration;
+    
     private final ImageView play = new ImageView(new Image("/org/lazycodes/resources/play.png", 50, 50, true, true));
     private final ImageView pause = new ImageView(new Image("/org/lazycodes/resources/pause.png", 50, 50, true, true));
+    private final ImageView next = new ImageView(new Image("/org/lazycodes/resources/next.png", 50, 50, true, true));
+    private final ImageView previous = new ImageView(new Image("/org/lazycodes/resources/previous.png", 50, 50, true, true));
+    
+    private int playCounter = 0;
 
     @Override
     public void start(Stage primaryStage){
@@ -70,8 +74,15 @@ public class LazyPlayer extends Application{
     
     private void initUI(Stage stage) throws IOException{
                 
-        playButton = new JFXButton("", play);
-        playButton.setButtonType(JFXButton.ButtonType.FLAT);
+        playPauseButton = new JFXButton("", play);
+        playPauseButton.setButtonType(JFXButton.ButtonType.FLAT);
+        
+        nextButton = new JFXButton("", next);
+        nextButton.setButtonType(JFXButton.ButtonType.FLAT);
+        
+        previousButton = new JFXButton("", previous);
+        previousButton.setButtonType(JFXButton.ButtonType.FLAT);
+        
         controlHandlers();
         
         playList = new ArrayList<>();
@@ -86,12 +97,20 @@ public class LazyPlayer extends Application{
             duration = mediaPlayer.getMedia().getDuration();
             updateValues();
         });
+        
+        mediaPlayer.setOnEndOfMedia(() -> {
+            playCounter++;
+            if(playCounter > (playList.size()-1)){
+                playCounter = 0;
+            }
+            gaplessPlayback();
+        });
 
         mediaView = new MediaView(mediaPlayer);
         
         slider = new JFXSlider();
         HBox.setHgrow(slider, Priority.ALWAYS);
-        slider.setMinSize(300, 50);
+        slider.setCenterShape(true);
         slider.valueProperty().addListener((Observable observable) -> {
             if (slider.isValueChanging()) {
                 // multiply duration by percentage calculated by slider position
@@ -103,8 +122,11 @@ public class LazyPlayer extends Application{
         });
   
         time = new Label();
-        time.setTextFill(Color.YELLOW);
-        time.setPrefWidth(80);     
+        time.setTextFill(Color.BLUE);
+        time.setPrefWidth(slider.getPrefWidth()); 
+        time.setCenterShape(true);
+        time.setAlignment(Pos.CENTER);
+        time.setTextAlignment(TextAlignment.CENTER);
         
         controlsLayout = new GridPane();
         controlsLayout.setAlignment(Pos.CENTER);
@@ -112,7 +134,15 @@ public class LazyPlayer extends Application{
         controlsLayout.setVgap(10);
         controlsLayout.setPadding(new Insets(25,25,25,25));
         
-        controlsLayout.add(playButton, 0, 0, 1, 2);
+        controlsLayout.add(mediaView, 0, 0);
+        
+        controlsLayout.add(time, 0, 0, 3, 1);
+        
+        controlsLayout.add(slider, 0, 1, 3, 1);
+        
+        controlsLayout.add(previousButton, 0, 2);
+        controlsLayout.add(playPauseButton, 1, 2);
+        controlsLayout.add(nextButton, 2, 2);
         
         scene = new Scene(controlsLayout, 500, 400);
         
@@ -133,16 +163,58 @@ public class LazyPlayer extends Application{
         
     }
     
+    private void gaplessPlayback(){
+        
+        mediaPlayer = new MediaPlayer(playList.get(playCounter));
+        mediaPlayer.play();
+        mediaPlayer.currentTimeProperty().addListener((Observable ov) -> {
+            updateValues();
+        });
+        
+
+        mediaPlayer.setOnReady(() -> {
+            duration = mediaPlayer.getMedia().getDuration();
+            updateValues();
+        });
+        
+        mediaPlayer.setOnEndOfMedia(() -> {
+            playCounter++;
+            if(playCounter > (playList.size()-1)){
+                playCounter = 0;
+            }
+            gaplessPlayback();
+        });
+        
+    }
+    
     private void controlHandlers(){
         
-        playButton.setOnAction((ActionEvent event) -> {
+        playPauseButton.setOnAction((ActionEvent event) -> {
             if (mediaPlayer.getStatus() == Status.PAUSED || mediaPlayer.getStatus() == Status.READY || mediaPlayer.getStatus() == Status.STOPPED) {
                 mediaPlayer.play();
-                playButton.setGraphic(pause);
+                playPauseButton.setGraphic(pause);
             } else {
                 mediaPlayer.pause();
-                playButton.setGraphic(play);
+                playPauseButton.setGraphic(play);
             }
+        });
+        
+        nextButton.setOnAction((ActionEvent event) -> {
+            playCounter++;
+            mediaPlayer.stop();
+            if(playCounter > (playList.size()-1)){
+                playCounter = 0;
+            }
+            gaplessPlayback();
+        });
+        
+        previousButton.setOnAction((ActionEvent event) -> {
+            playCounter--;
+            mediaPlayer.stop();
+            if(playCounter < 0){
+                playCounter = 0;
+            }
+            gaplessPlayback();
         });
         
     }
