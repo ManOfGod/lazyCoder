@@ -7,6 +7,7 @@ package org.lazycodes.AudioPlayer;
 
 import com.jfoenix.controls.JFXButton;
 import com.jfoenix.controls.JFXSlider;
+import com.jfoenix.skins.JFXSliderSkin;
 import java.io.File;
 import java.io.IOException;
 import static java.lang.Math.floor;
@@ -34,7 +35,23 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 import org.lazycodes.service.FileManager;
 import static java.lang.String.format;
+import java.util.Iterator;
+import javafx.beans.InvalidationListener;
+import javafx.beans.value.ChangeListener;
+import javafx.collections.ObservableMap;
+import javafx.scene.control.OverrunStyle;
+import javafx.scene.control.SkinBase;
+import javafx.scene.effect.DropShadow;
+import javafx.scene.layout.Background;
+import javafx.scene.layout.Border;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.BorderStroke;
+import javafx.scene.layout.BorderStrokeStyle;
+import javafx.scene.layout.BorderWidths;
+import javafx.scene.layout.CornerRadii;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.TextAlignment;
+
 
 /**
  *
@@ -48,16 +65,24 @@ public class LazyPlayer extends Application{
     private JFXButton previousButton;
     private GridPane controlsLayout;
     private JFXSlider slider;
+    private JFXSlider volume;
     private Label time;
+    private Label title;
     private List<Media> playList;
     private MediaPlayer mediaPlayer;
     private MediaView mediaView;
     private Duration duration;
+    private HBox controls;
+    private HBox buttonContainer;
+    private HBox mediaContainer;
+    private VBox verticalLayout;
+    private HBox volumeSliderContainer;
+    private BorderPane layoutBorder;
     
-    private final ImageView play = new ImageView(new Image("/org/lazycodes/resources/play.png", 50, 50, true, true));
-    private final ImageView pause = new ImageView(new Image("/org/lazycodes/resources/pause.png", 50, 50, true, true));
-    private final ImageView next = new ImageView(new Image("/org/lazycodes/resources/next.png", 50, 50, true, true));
-    private final ImageView previous = new ImageView(new Image("/org/lazycodes/resources/previous.png", 50, 50, true, true));
+    private final ImageView play = new ImageView(new Image("/org/lazycodes/resources/ic_play_circle_filled_black_48dp_2x.png", 50, 50, true, true));
+    private final ImageView pause = new ImageView(new Image("/org/lazycodes/resources/ic_pause_circle_filled_black_48dp_2x.png", 50, 50, true, true));
+    private final ImageView next = new ImageView(new Image("/org/lazycodes/resources/ic_skip_next_black_48dp_2x.png", 50, 50, true, true));
+    private final ImageView previous = new ImageView(new Image("/org/lazycodes/resources/ic_skip_previous_black_48dp_2x.png", 50, 50, true, true));
     
     private int playCounter = 0;
 
@@ -73,7 +98,7 @@ public class LazyPlayer extends Application{
     }
     
     private void initUI(Stage stage) throws IOException{
-                
+                        
         playPauseButton = new JFXButton("", play);
         playPauseButton.setButtonType(JFXButton.ButtonType.FLAT);
         
@@ -82,8 +107,6 @@ public class LazyPlayer extends Application{
         
         previousButton = new JFXButton("", previous);
         previousButton.setButtonType(JFXButton.ButtonType.FLAT);
-        
-        controlHandlers();
         
         playList = new ArrayList<>();
         loadPlaylist(playList);
@@ -111,6 +134,7 @@ public class LazyPlayer extends Application{
         slider = new JFXSlider();
         HBox.setHgrow(slider, Priority.ALWAYS);
         slider.setCenterShape(true);
+        slider.setPrefWidth(350);
         slider.valueProperty().addListener((Observable observable) -> {
             if (slider.isValueChanging()) {
                 // multiply duration by percentage calculated by slider position
@@ -122,31 +146,68 @@ public class LazyPlayer extends Application{
         });
   
         time = new Label();
-        time.setTextFill(Color.BLUE);
+        time.setTextFill(Color.WHITE);
         time.setPrefWidth(slider.getPrefWidth()); 
-        time.setCenterShape(true);
         time.setAlignment(Pos.CENTER);
         time.setTextAlignment(TextAlignment.CENTER);
         
-        controlsLayout = new GridPane();
-        controlsLayout.setAlignment(Pos.CENTER);
-        controlsLayout.setHgap(10);
-        controlsLayout.setVgap(10);
-        controlsLayout.setPadding(new Insets(25,25,25,25));
+        title = new Label();
+        title.setTextFill(Color.WHITE);
+        title.setAlignment(Pos.CENTER);
+        title.setTextAlignment(TextAlignment.CENTER);
+        title.setTextOverrun(OverrunStyle.CLIP);
+        title.setPrefWidth(350);
         
-        controlsLayout.add(mediaView, 0, 0);
+        buttonContainer = new HBox();
+        buttonContainer.getChildren().add(previousButton);
+        buttonContainer.getChildren().add(playPauseButton);
+        buttonContainer.getChildren().add(nextButton);
         
-        controlsLayout.add(time, 0, 0, 3, 1);
+        verticalLayout = new VBox();
+        verticalLayout.setAlignment(Pos.CENTER);
+        verticalLayout.getChildren().add(title);
+        verticalLayout.getChildren().add(slider);
+        verticalLayout.getChildren().add(time);
+        verticalLayout.getChildren().add(mediaView);
+        verticalLayout.setPadding(new Insets(5, 5, 5, 5));
         
-        controlsLayout.add(slider, 0, 1, 3, 1);
+        mediaContainer = new HBox();
+        mediaContainer.setStyle("-fx-border-radius: 50px;");
+        mediaContainer.setBackground(Background.EMPTY);
+//        -fx-background-color: #4A4A4A; 
+        mediaContainer.getChildren().add(verticalLayout);
+                             
+        volume = new JFXSlider();
+        volume.setPrefWidth(130.0);
+        volume.setCenterShape(true);
+        volume.setValue(50.0);
         
-        controlsLayout.add(previousButton, 0, 2);
-        controlsLayout.add(playPauseButton, 1, 2);
-        controlsLayout.add(nextButton, 2, 2);
+        mediaPlayer.setVolume(volume.getValue() / 100.0);
         
-        scene = new Scene(controlsLayout, 500, 400);
+        volumeSliderContainer = new HBox();
+        volumeSliderContainer.setAlignment(Pos.CENTER);
+        volumeSliderContainer.setPadding(new Insets(0, 0, 0, 35));
+        volumeSliderContainer.getChildren().add(volume);
+        
+        controls = new HBox();
+        controls.setPadding(new Insets(15, 12, 12, 12));
+        controls.setSpacing(10);
+        controls.setStyle("-fx-background-color: #404040;");
+        controls.setEffect(new DropShadow(20, Color.BLACK));
+        controls.getChildren().add(buttonContainer);
+        controls.getChildren().add(mediaContainer);
+        controls.getChildren().add(volumeSliderContainer);
+        
+        layoutBorder = new BorderPane();
+        layoutBorder.setTop(controls);
+
+        controlHandlers();        
+        
+        scene = new Scene(layoutBorder, 800, 600);
         
         stage.setScene(scene);
+        stage.getIcons().add(new Image("/org/lazycodes/resources/app-logo.png"));
+        stage.setResizable(false);
         stage.setOnCloseRequest(e -> System.exit(0));
         stage.show();
         
@@ -166,12 +227,14 @@ public class LazyPlayer extends Application{
     private void gaplessPlayback(){
         
         mediaPlayer = new MediaPlayer(playList.get(playCounter));
+        System.out.println(mediaPlayer.getMedia().getMetadata().get("title") == null ? "empty" : mediaPlayer.getMedia().getMetadata().get("title").toString());
+        System.out.println(mediaPlayer.getMedia().getMetadata().get("artist") == null ? "empty" : mediaPlayer.getMedia().getMetadata().get("artist").toString());
+        System.out.println(mediaPlayer.getMedia().getMetadata().get("album") == null ? "empty" : mediaPlayer.getMedia().getMetadata().get("album").toString());
         mediaPlayer.play();
         mediaPlayer.currentTimeProperty().addListener((Observable ov) -> {
             updateValues();
         });
         
-
         mediaPlayer.setOnReady(() -> {
             duration = mediaPlayer.getMedia().getDuration();
             updateValues();
@@ -217,10 +280,19 @@ public class LazyPlayer extends Application{
             gaplessPlayback();
         });
         
+        volume.valueProperty().addListener((Observable ov) -> {
+            if (volume.isValueChanging()) {
+                mediaPlayer.setVolume(volume.getValue() / 100.0);
+            }
+        });
+        
     }
     
     protected void updateValues() {
         if (time != null && slider != null && duration != null) {
+            if(mediaPlayer.getMedia() != null){
+                title.setText(mediaPlayer.getMedia().getMetadata().get("title") == null ? "" : mediaPlayer.getMedia().getMetadata().get("title").toString());                
+            }
             Platform.runLater(() -> {
                 Duration currentTime = mediaPlayer.getCurrentTime();
                 time.setText(formatTime(currentTime, duration));
