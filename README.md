@@ -1,1 +1,1 @@
-# lazyCoder
+# lazyPlayer
